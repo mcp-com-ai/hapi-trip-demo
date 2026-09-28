@@ -1,13 +1,31 @@
 # Laura's Trip — HAPI Capability Graph demo
 
-This project is a local, synthetic demonstration of a contract-driven trip
-story about Laura's trip. Contract-driven interactions are modeled using 
-**HAPI Capability Graphs**. Requires _HAPI v1.2.0_, private beta access, 
-and a valid `TYPESAFE_API_KEY`.
+> **In this contract-driven MCP trip-booking demo, Jev/TypeSafe helps when the
+> user's intent is clear but the wording is ambiguous.**
+
+This project is a local, (**greenfield**) synthetic demonstration of a 
+contract-driven trip story about Laura's trip. Contract-driven interactions 
+are modeled using **HAPI Capability Graphs**. Requires _HAPI v1.2.0_, private 
+beta access, and a valid `TYPESAFE_API_KEY`.
 
 [Request access](https://rebelion.la/contact) to the private beta binaries and 
 obtain a valid `TYPESAFE_API_KEY` before proceeding. 
 Contact the [HAPI Guy](https://www.linkedin.com/in/adrianescutia/) for any questions or support.
+
+What is a **HAPI Capability Graph**?
+
+A **HAPI Capability Graph** is a structured representation of the capabilities, 
+contracts, and interactions within a system. It allows for declarative modeling 
+of what actions are possible, under what conditions, and how different components 
+of the system can interact to achieve specific goals. In this demo, it is used 
+to model the contract-driven interactions for Laura's trip.
+
+What is in this project?
+
+Pure **contract-driven** interactions for Laura's trip are modeled using HAPI 
+Capability Graphs. This project demonstrates how to define capabilities, contracts, 
+and interactions in a declarative manner, and how to execute and verify them locally.
+
 
 ```sh
 export YOUR_PROJECTS_DIR=/path/to/your/projects
