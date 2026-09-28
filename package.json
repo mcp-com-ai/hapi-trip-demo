@@ -1,0 +1,20 @@
+{
+  "name": "lauras-trip-demo",
+  "private": true,
+  "type": "module",
+  "description": "Local HAPI Capability Graph and Arazzo demonstration for Laura's trip",
+  "scripts": {
+    "check:contracts": "bun scripts/check-contracts.ts",
+    "test": "bun test test",
+    "generate:facade": "bun scripts/generate-federated.ts",
+    "serve": "HAPI_HOME=$PWD hapi serve lauras-trip --specs ./contracts/trip-federated.openapi.yaml --mcp --capability-graph --capability-planning --capability-classifier deterministic --runtime-authority decision --dev --port 3100",
+    "serve:jev": "HAPI_HOME=$PWD hapi serve lauras-trip --specs ./contracts/trip-federated.openapi.yaml --mcp --capability-graph --capability-planning --capability-classifier typesafe --runtime-authority decision --dev --port 3100",
+    "serve:trace": "HAPI_HOME=$PWD hapi serve lauras-trip --specs ./contracts/trip-federated.openapi.yaml --mcp --capability-graph --capability-planning --capability-trace --dev --port 3100",
+    "serve:jev:trace": "HAPI_HOME=$PWD hapi serve lauras-trip --specs ./contracts/trip-federated.openapi.yaml --mcp --capability-graph --capability-planning --capability-classifier typesafe --runtime-authority decision --capability-trace --dev --port 3100",
+    "serve:workflows": "HAPI_HOME=$PWD hapi arazzo serve ./arazzo/trip.arazzo.yaml --mcp --port 3101",
+    "review": "bun scripts/review.ts"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.0"
+  }
+}

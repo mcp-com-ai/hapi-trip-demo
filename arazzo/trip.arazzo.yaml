@@ -1,0 +1,93 @@
+arazzo: 1.1.0
+info:
+  title: Laura's Trip workflows
+  version: 1.0.0
+  description: Plan A composition over local flight, hotel, and transfer contracts.
+sourceDescriptions:
+  - name: flights
+    url: ../contracts/flights.openapi.yaml
+    type: openapi
+  - name: hotels
+    url: ../contracts/hotels.openapi.yaml
+    type: openapi
+  - name: transfers
+    url: ../contracts/transfers.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: bookTrip
+    summary: Select and book Laura's flight, hotel, and transfer
+    x-hapi-planning:
+      requires: [{ predicate: traveller.identity.verified }, { predicate: flight.selected }, { predicate: hotel.selected }]
+      produces: [{ predicate: trip.booked }]
+      cost: 3
+    inputs:
+      type: object
+      required: [flightId, hotelId, transferId, travellerId]
+      properties:
+        flightId: { type: string }
+        hotelId: { type: string }
+        transferId: { type: string }
+        travellerId: { type: string }
+    steps:
+      - stepId: bookFlight
+        operationId: $sourceDescriptions.flights.bookFlight
+        requestBody: { contentType: application/json, payload: { flightId: $inputs.flightId, travellerId: $inputs.travellerId } }
+        successCriteria: [{ condition: $statusCode == 200 }]
+      - stepId: bookHotel
+        operationId: $sourceDescriptions.hotels.bookHotel
+        requestBody: { contentType: application/json, payload: { hotelId: $inputs.hotelId, travellerId: $inputs.travellerId } }
+        successCriteria: [{ condition: $statusCode == 200 }]
+      - stepId: bookTransfer
+        operationId: $sourceDescriptions.transfers.bookTransfer
+        requestBody: { contentType: application/json, payload: { transferId: $inputs.transferId } }
+        successCriteria: [{ condition: $statusCode == 200 }]
+    outputs: { flightBooking: $steps.bookFlight.outputs, hotelBooking: $steps.bookHotel.outputs }
+  - workflowId: modifyBooking
+    summary: Change Laura's booked flight date
+    x-hapi-planning: { requires: [{ predicate: flight.booked }], produces: [{ predicate: flight.modified }], cost: 1 }
+    inputs:
+      type: object
+      required: [flightId, departureDate]
+      properties: { flightId: { type: string }, departureDate: { type: string } }
+    steps:
+      - stepId: modifyFlight
+        operationId: $sourceDescriptions.flights.modifyFlight
+        parameters: [{ name: flightId, in: path, value: $inputs.flightId }]
+        requestBody: { contentType: application/json, payload: { departureDate: $inputs.departureDate } }
+        successCriteria: [{ condition: $statusCode == 200 }]
+  - workflowId: swapHotel
+    summary: Cancel an existing hotel and book Laura's new explicit choice
+    x-hapi-planning:
+      requires: [{ predicate: hotel.booked }, { predicate: hotel.selected }, { predicate: traveller.identity.verified }]
+      produces: [{ predicate: hotel.rebooked }]
+      removes: [{ predicate: hotel.booked }]
+      cost: 2
+    inputs:
+      type: object
+      required: [oldHotelId, hotelId, travellerId]
+      properties: { oldHotelId: { type: string }, hotelId: { type: string }, travellerId: { type: string } }
+    steps:
+      - stepId: cancelOldHotel
+        operationId: $sourceDescriptions.hotels.cancelHotel
+        parameters: [{ name: hotelId, in: path, value: $inputs.oldHotelId }]
+        successCriteria: [{ condition: $statusCode == 200 }]
+      - stepId: bookNewHotel
+        operationId: $sourceDescriptions.hotels.bookHotel
+        requestBody: { contentType: application/json, payload: { hotelId: $inputs.hotelId, travellerId: $inputs.travellerId } }
+        successCriteria: [{ condition: $statusCode == 200 }]
+  - workflowId: cancelFlight
+    summary: Cancel Laura's booked flight
+    x-hapi-planning:
+      requires: [{ predicate: flight.booked }]
+      produces: [{ predicate: flight.cancelled }]
+      removes: [{ predicate: flight.booked }]
+      cost: 1
+    inputs:
+      type: object
+      required: [flightId]
+      properties: { flightId: { type: string } }
+    steps:
+      - stepId: cancelFlight
+        operationId: $sourceDescriptions.flights.cancelFlight
+        parameters: [{ name: flightId, in: path, value: $inputs.flightId }]
+        successCriteria: [{ condition: $statusCode == 200 }]

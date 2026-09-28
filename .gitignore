@@ -1,0 +1,8 @@
+.hapi-runtime/
+*.log
+artifacts/
+*.ignoreme.*
+.env
+
+node_modules/
+logs/

@@ -1,0 +1,31 @@
+openapi: 3.1.0
+info:
+  title: Laura Trip Transfers
+  version: 1.0.0
+  description: Synthetic local airport-transfer inventory for the Laura Capability Graph demonstration.
+servers:
+  - url: http://127.0.0.1:3100
+paths:
+  /transfers:
+    get:
+      operationId: listTransfers
+      tags: [Transfers]
+      summary: Find available airport transfers
+      x-hapi-capability: [Travel/Transfers/Discovery]
+      x-hapi-intent: { use-when: [Laura needs a ground transfer option.], avoid-when: [A verified transfer selection exists.] }
+      x-hapi-effects: { mode: read, side-effecting: false, destructive: false, idempotent: true, requires-confirmation: false }
+      x-hapi-prerequisites: []
+      x-hapi-planning: { produces: [{ predicate: transfers.consulted }], cost: 1 }
+      responses: { '200': { description: Transfer choices, content: { application/json: { schema: { type: object } } } } }
+  /transfers/bookings:
+    post:
+      operationId: bookTransfer
+      tags: [Transfers]
+      summary: Book the selected airport transfer
+      x-hapi-capability: [Travel/Transfers/Booking]
+      x-hapi-intent: { use-when: [Laura has selected transfer service after booking travel.], avoid-when: [No transfer selection exists.] }
+      x-hapi-effects: { mode: create, side-effecting: true, destructive: false, idempotent: false, requires-confirmation: true }
+      x-hapi-prerequisites: [Verified transfer selection, Booking confirmation]
+      x-hapi-planning: { requires: [{ predicate: transfer.selected }], produces: [{ predicate: transfer.booked }], cost: 1 }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [transferId], properties: { transferId: { type: string, example: transfer-cun-1 } } } } } }
+      responses: { '200': { description: Transfer booking, content: { application/json: { schema: { type: object } } } } }

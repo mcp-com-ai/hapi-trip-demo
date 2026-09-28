@@ -1,0 +1,97 @@
+@base = http://127.0.0.1:3100
+@flightId = flight-cun-101
+@travellerId = laura-demo
+
+### MCP: inspect the capability tools (server started with bun run serve)
+POST {{base}}/mcp
+content-type: application/json
+accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list",
+  "params": {}
+}
+
+### MCP: turn Laura's request into declared goal vocabulary; this asserts no fact
+POST {{base}}/mcp
+content-type: application/json
+accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "capability_context",
+    "arguments": { "query": "I want to book Laura's trip to Cancún", "limit": 5 }
+  }
+}
+
+### MCP: plan only from verified state; without gate confirmation this is clarification-required
+POST {{base}}/mcp
+content-type: application/json
+accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "capability_plan",
+    "arguments": {
+      "initialFacts": [
+        { "predicate": "traveller.identity.verified" },
+        { "predicate": "flights.consulted" },
+        { "predicate": "hotels.consulted" }
+      ],
+      "goalFacts": [{ "predicate": "trip.booked" }]
+    }
+  }
+}
+
+### Reset deterministic state
+POST {{base}}/demo/reset
+
+### Discover flights — produces flights.consulted, not flight.selected
+GET {{base}}/flights
+
+### Laura explicitly selects a flight — establishes flight.selected
+POST {{base}}/flights/selection
+content-type: application/json
+
+{ "flightId": "{{flightId}}" }
+
+### Book the selected flight after verified identity
+POST {{base}}/flights/bookings
+content-type: application/json
+
+{ "flightId": "{{flightId}}", "travellerId": "{{travellerId}}" }
+
+### Discover hotels — produces hotels.consulted, not hotel.selected
+GET {{base}}/hotels
+
+### Demonstrate the deliberate unavailable Hotel B response (do not retry)
+POST {{base}}/hotels/bookings
+content-type: application/json
+
+{ "hotelId": "hotel-b", "travellerId": "{{travellerId}}" }
+
+### Laura chooses Hotel C; this is an explicit new fact before re-planning
+POST {{base}}/hotels/selection
+content-type: application/json
+
+{ "hotelId": "hotel-c" }
+
+### Book Hotel C
+POST {{base}}/hotels/bookings
+content-type: application/json
+
+{ "hotelId": "hotel-c", "travellerId": "{{travellerId}}" }
+
+### Inspect resulting synthetic itinerary
+GET {{base}}/itinerary
+
+### Cancel the booked flight — produces flight.cancelled and removes flight.booked
+POST {{base}}/flights/{{flightId}}/cancellation

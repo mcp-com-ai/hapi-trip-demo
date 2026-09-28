@@ -1,0 +1,626 @@
+openapi: 3.1.0
+info:
+  title: Laura's Trip — composed local demo
+  version: 1.0.0
+  description: Generated single-document compatibility façade over the Flights,
+    Hotels, and Transfers source contracts. It is not runtime Capability Graph
+    federation.
+  x-hapi-demo-composition:
+    sources:
+      - flights.openapi.yaml
+      - hotels.openapi.yaml
+      - transfers.openapi.yaml
+    not-runtime-federation: true
+servers:
+  - url: http://127.0.0.1:3100
+paths:
+  /flights:
+    get:
+      operationId: listFlights
+      tags:
+        - Flights
+      summary: Find available flights for Laura's trip
+      x-hapi-capability:
+        - Travel/Flights/Discovery
+      x-hapi-intent:
+        use-when:
+          - Laura needs flight choices before selecting one.
+        avoid-when:
+          - A verified flight selection already exists.
+      x-hapi-effects:
+        mode: read
+        side-effecting: false
+        destructive: false
+        idempotent: true
+        requires-confirmation: false
+      x-hapi-prerequisites: []
+      x-hapi-planning:
+        produces:
+          - predicate: flights.consulted
+        cost: 1
+      responses:
+        "200":
+          description: Available flights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Flights"
+  /flights/selection:
+    post:
+      operationId: selectFlight
+      tags:
+        - Flights
+      summary: Record Laura's explicit flight selection
+      x-hapi-capability:
+        - Travel/Flights/Selection
+      x-hapi-intent:
+        use-when:
+          - Laura has chosen a listed flight.
+        avoid-when:
+          - A search result has not been reviewed by Laura.
+      x-hapi-effects:
+        mode: action
+        side-effecting: false
+        destructive: false
+        idempotent: true
+        requires-confirmation: false
+      x-hapi-prerequisites:
+        - A flight choice must be confirmed by Laura.
+      x-hapi-planning:
+        requires:
+          - predicate: flights.consulted
+        produces:
+          - predicate: flight.selected
+        cost: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - flightId
+              properties:
+                flightId:
+                  type: string
+                  example: flight-cun-101
+      responses:
+        "200":
+          description: Selected flight
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Selection"
+  /flights/bookings:
+    post:
+      operationId: bookFlight
+      tags:
+        - Flights
+      summary: Book Laura's selected flight
+      x-hapi-capability:
+        - Travel/Flights/Booking
+      x-hapi-intent:
+        use-when:
+          - Laura's identity and flight selection are verified and she wants to
+            book.
+        avoid-when:
+          - The flight is only a search result or Laura has not approved booking.
+      x-hapi-effects:
+        mode: create
+        side-effecting: true
+        destructive: false
+        idempotent: false
+        requires-confirmation: true
+      x-hapi-prerequisites:
+        - Verified traveller identity
+        - Explicit flight selection
+        - Booking confirmation
+      x-hapi-planning:
+        requires:
+          - predicate: traveller.identity.verified
+          - predicate: flight.selected
+        produces:
+          - predicate: flight.booked
+        cost: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - flightId
+                - travellerId
+              properties:
+                flightId:
+                  type: string
+                travellerId:
+                  type: string
+                  example: laura-demo
+      responses:
+        "200":
+          description: Flight booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /flights/{flightId}:
+    patch:
+      operationId: modifyFlight
+      tags:
+        - Flights
+      summary: Change the departure date of a booked flight
+      parameters:
+        - name: flightId
+          in: path
+          required: true
+          schema:
+            type: string
+      x-hapi-capability:
+        - Travel/Flights/Modification
+      x-hapi-intent:
+        use-when:
+          - Laura wants to change a booked flight.
+        avoid-when:
+          - No flight booking exists.
+      x-hapi-effects:
+        mode: update
+        side-effecting: true
+        destructive: false
+        idempotent: false
+        requires-confirmation: true
+      x-hapi-prerequisites:
+        - Verified booked flight
+        - Booking confirmation
+      x-hapi-planning:
+        requires:
+          - predicate: flight.booked
+        produces:
+          - predicate: flight.modified
+        cost: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - departureDate
+              properties:
+                departureDate:
+                  type: string
+                  format: date
+                  example: 2026-10-12
+      responses:
+        "200":
+          description: Modified flight
+          content:
+            application/json:
+              schema:
+                type: object
+  /flights/{flightId}/cancellation:
+    post:
+      operationId: cancelFlight
+      tags:
+        - Flights
+      summary: Cancel Laura's booked flight
+      parameters:
+        - name: flightId
+          in: path
+          required: true
+          schema:
+            type: string
+      x-hapi-capability:
+        - Travel/Flights/Cancellation
+      x-hapi-intent:
+        use-when:
+          - Laura explicitly wants to cancel a booked flight.
+        avoid-when:
+          - The flight is not booked.
+      x-hapi-effects:
+        mode: delete
+        side-effecting: true
+        destructive: true
+        idempotent: true
+        requires-confirmation: true
+      x-hapi-prerequisites:
+        - Verified booked flight
+        - Explicit cancellation confirmation
+      x-hapi-planning:
+        requires:
+          - predicate: flight.booked
+        produces:
+          - predicate: flight.cancelled
+        removes:
+          - predicate: flight.booked
+        cost: 1
+      responses:
+        "200":
+          description: Cancelled flight
+          content:
+            application/json:
+              schema:
+                type: object
+  /hotels:
+    get:
+      operationId: listHotels
+      tags:
+        - Hotels
+      summary: Find hotel choices for Laura's trip
+      x-hapi-capability:
+        - Travel/Hotels/Discovery
+      x-hapi-intent:
+        use-when:
+          - Laura needs hotel choices.
+        avoid-when:
+          - A verified hotel selection exists.
+      x-hapi-effects:
+        mode: read
+        side-effecting: false
+        destructive: false
+        idempotent: true
+        requires-confirmation: false
+      x-hapi-prerequisites: []
+      x-hapi-planning:
+        produces:
+          - predicate: hotels.consulted
+        cost: 1
+      responses:
+        "200":
+          description: Hotel choices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Hotels"
+  /hotels/selection:
+    post:
+      operationId: selectHotel
+      tags:
+        - Hotels
+      summary: Record Laura's explicit hotel selection
+      x-hapi-capability:
+        - Travel/Hotels/Selection
+      x-hapi-intent:
+        use-when:
+          - Laura has selected an available hotel.
+        avoid-when:
+          - The hotel was not selected by Laura.
+      x-hapi-effects:
+        mode: action
+        side-effecting: false
+        destructive: false
+        idempotent: true
+        requires-confirmation: false
+      x-hapi-prerequisites:
+        - An available hotel choice must be confirmed by Laura.
+      x-hapi-planning:
+        requires:
+          - predicate: hotels.consulted
+        produces:
+          - predicate: hotel.selected
+        cost: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hotelId
+              properties:
+                hotelId:
+                  type: string
+                  example: hotel-c
+      responses:
+        "200":
+          description: Selected hotel
+          content:
+            application/json:
+              schema:
+                type: object
+  /hotels/bookings:
+    post:
+      operationId: bookHotel
+      tags:
+        - Hotels
+      summary: Book Laura's selected hotel
+      x-hapi-capability:
+        - Travel/Hotels/Booking
+      x-hapi-intent:
+        use-when:
+          - Laura's identity and hotel selection are verified and she wants to
+            book.
+        avoid-when:
+          - The hotel is only a search result.
+      x-hapi-effects:
+        mode: create
+        side-effecting: true
+        destructive: false
+        idempotent: false
+        requires-confirmation: true
+      x-hapi-prerequisites:
+        - Verified traveller identity
+        - Explicit hotel selection
+        - Booking confirmation
+      x-hapi-planning:
+        requires:
+          - predicate: traveller.identity.verified
+          - predicate: flight.booked
+          - predicate: hotel.selected
+        produces:
+          - predicate: hotel.booked
+          - predicate: trip.booked
+        cost: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hotelId
+                - travellerId
+              properties:
+                hotelId:
+                  type: string
+                travellerId:
+                  type: string
+                  example: laura-demo
+      responses:
+        "200":
+          description: Hotel booking
+          content:
+            application/json:
+              schema:
+                type: object
+        "409":
+          description: Hotel B is unavailable; select a different hotel and re-plan
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - unavailable
+                  - hotelId
+                properties:
+                  unavailable:
+                    type: boolean
+                  hotelId:
+                    type: string
+                  reason:
+                    type: string
+  /hotels/{hotelId}/cancellation:
+    post:
+      operationId: cancelHotel
+      tags:
+        - Hotels
+      summary: Cancel Laura's booked hotel
+      parameters:
+        - name: hotelId
+          in: path
+          required: true
+          schema:
+            type: string
+      x-hapi-capability:
+        - Travel/Hotels/Cancellation
+      x-hapi-intent:
+        use-when:
+          - Laura wants to replace a booked hotel.
+        avoid-when:
+          - No hotel booking exists.
+      x-hapi-effects:
+        mode: delete
+        side-effecting: true
+        destructive: true
+        idempotent: true
+        requires-confirmation: true
+      x-hapi-prerequisites:
+        - Verified booked hotel
+        - Explicit cancellation confirmation
+      x-hapi-planning:
+        requires:
+          - predicate: hotel.booked
+        produces:
+          - predicate: hotel.cancelled
+        removes:
+          - predicate: hotel.booked
+        cost: 1
+      responses:
+        "200":
+          description: Cancelled hotel
+          content:
+            application/json:
+              schema:
+                type: object
+  /transfers:
+    get:
+      operationId: listTransfers
+      tags:
+        - Transfers
+      summary: Find available airport transfers
+      x-hapi-capability:
+        - Travel/Transfers/Discovery
+      x-hapi-intent:
+        use-when:
+          - Laura needs a ground transfer option.
+        avoid-when:
+          - A verified transfer selection exists.
+      x-hapi-effects:
+        mode: read
+        side-effecting: false
+        destructive: false
+        idempotent: true
+        requires-confirmation: false
+      x-hapi-prerequisites: []
+      x-hapi-planning:
+        produces:
+          - predicate: transfers.consulted
+        cost: 1
+      responses:
+        "200":
+          description: Transfer choices
+          content:
+            application/json:
+              schema:
+                type: object
+  /transfers/bookings:
+    post:
+      operationId: bookTransfer
+      tags:
+        - Transfers
+      summary: Book the selected airport transfer
+      x-hapi-capability:
+        - Travel/Transfers/Booking
+      x-hapi-intent:
+        use-when:
+          - Laura has selected transfer service after booking travel.
+        avoid-when:
+          - No transfer selection exists.
+      x-hapi-effects:
+        mode: create
+        side-effecting: true
+        destructive: false
+        idempotent: false
+        requires-confirmation: true
+      x-hapi-prerequisites:
+        - Verified transfer selection
+        - Booking confirmation
+      x-hapi-planning:
+        requires:
+          - predicate: transfer.selected
+        produces:
+          - predicate: transfer.booked
+        cost: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - transferId
+              properties:
+                transferId:
+                  type: string
+                  example: transfer-cun-1
+      responses:
+        "200":
+          description: Transfer booking
+          content:
+            application/json:
+              schema:
+                type: object
+  /itinerary:
+    get:
+      operationId: getItinerary
+      tags:
+        - Trip
+      summary: Review Laura's synthetic itinerary
+      x-hapi-capability:
+        - Travel/Trip/Inspection
+      x-hapi-intent:
+        use-when:
+          - The client needs to verify local booking state.
+        avoid-when:
+          - The client only needs to discover choices.
+      x-hapi-effects:
+        mode: read
+        side-effecting: false
+        destructive: false
+        idempotent: true
+        requires-confirmation: false
+      x-hapi-prerequisites: []
+      responses:
+        "200":
+          description: Current synthetic itinerary
+          content:
+            application/json:
+              schema:
+                type: object
+  /demo/reset:
+    post:
+      operationId: resetDemo
+      tags:
+        - Demo
+      summary: Reset synthetic demo state
+      x-hapi-capability:
+        - Travel/Demo/Reset
+      x-hapi-intent:
+        use-when:
+          - Starting a deterministic local demo scenario.
+        avoid-when:
+          - Working with a real trip.
+      x-hapi-effects:
+        mode: action
+        side-effecting: true
+        destructive: true
+        idempotent: true
+        requires-confirmation: false
+      x-hapi-prerequisites:
+        - Local demo environment only.
+      responses:
+        "200":
+          description: Reset local state
+          content:
+            application/json:
+              schema:
+                type: object
+components:
+  schemas:
+    Flights:
+      type: object
+      required:
+        - flights
+      properties:
+        flights:
+          type: array
+          items:
+            $ref: "#/components/schemas/Flight"
+    Flight:
+      type: object
+      required:
+        - id
+        - route
+        - date
+        - status
+      properties:
+        id:
+          type: string
+        route:
+          type: string
+        date:
+          type: string
+        status:
+          type: string
+    Selection:
+      type: object
+      properties:
+        selectedFlight:
+          type: object
+    Booking:
+      type: object
+      properties:
+        bookingId:
+          type: string
+        flightId:
+          type: string
+        travellerId:
+          type: string
+        status:
+          type: string
+    Hotels:
+      type: object
+      required:
+        - hotels
+      properties:
+        hotels:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              status:
+                type: string

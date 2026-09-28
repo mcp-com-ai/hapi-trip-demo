@@ -1,0 +1,60 @@
+openapi: 3.1.0
+info:
+  title: Laura Trip Hotels
+  version: 1.0.0
+  description: Synthetic local hotel inventory. Hotel B always returns the declared unavailable response; Hotel C is the deterministic alternate.
+servers:
+  - url: http://127.0.0.1:3100
+paths:
+  /hotels:
+    get:
+      operationId: listHotels
+      tags: [Hotels]
+      summary: Find hotel choices for Laura's trip
+      x-hapi-capability: [Travel/Hotels/Discovery]
+      x-hapi-intent: { use-when: [Laura needs hotel choices.], avoid-when: [A verified hotel selection exists.] }
+      x-hapi-effects: { mode: read, side-effecting: false, destructive: false, idempotent: true, requires-confirmation: false }
+      x-hapi-prerequisites: []
+      x-hapi-planning: { produces: [{ predicate: hotels.consulted }], cost: 1 }
+      responses: { '200': { description: Hotel choices, content: { application/json: { schema: { $ref: '#/components/schemas/Hotels' } } } } }
+  /hotels/selection:
+    post:
+      operationId: selectHotel
+      tags: [Hotels]
+      summary: Record Laura's explicit hotel selection
+      x-hapi-capability: [Travel/Hotels/Selection]
+      x-hapi-intent: { use-when: [Laura has selected an available hotel.], avoid-when: [The hotel was not selected by Laura.] }
+      x-hapi-effects: { mode: action, side-effecting: false, destructive: false, idempotent: true, requires-confirmation: false }
+      x-hapi-prerequisites: [An available hotel choice must be confirmed by Laura.]
+      x-hapi-planning: { requires: [{ predicate: hotels.consulted }], produces: [{ predicate: hotel.selected }], cost: 1 }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [hotelId], properties: { hotelId: { type: string, example: hotel-c } } } } } }
+      responses: { '200': { description: Selected hotel, content: { application/json: { schema: { type: object } } } } }
+  /hotels/bookings:
+    post:
+      operationId: bookHotel
+      tags: [Hotels]
+      summary: Book Laura's selected hotel
+      x-hapi-capability: [Travel/Hotels/Booking]
+      x-hapi-intent: { use-when: [Laura's identity and hotel selection are verified and she wants to book.], avoid-when: [The hotel is only a search result.] }
+      x-hapi-effects: { mode: create, side-effecting: true, destructive: false, idempotent: false, requires-confirmation: true }
+      x-hapi-prerequisites: [Verified traveller identity, Explicit hotel selection, Booking confirmation]
+      x-hapi-planning: { requires: [{ predicate: traveller.identity.verified }, { predicate: flight.booked }, { predicate: hotel.selected }], produces: [{ predicate: hotel.booked }, { predicate: trip.booked }], cost: 1 }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [hotelId, travellerId], properties: { hotelId: { type: string }, travellerId: { type: string, example: laura-demo } } } } } }
+      responses:
+        '200': { description: Hotel booking, content: { application/json: { schema: { type: object } } } }
+        '409': { description: Hotel B is unavailable; select a different hotel and re-plan, content: { application/json: { schema: { type: object, required: [unavailable, hotelId], properties: { unavailable: { type: boolean }, hotelId: { type: string }, reason: { type: string } } } } } }
+  /hotels/{hotelId}/cancellation:
+    post:
+      operationId: cancelHotel
+      tags: [Hotels]
+      summary: Cancel Laura's booked hotel
+      parameters: [{ name: hotelId, in: path, required: true, schema: { type: string } }]
+      x-hapi-capability: [Travel/Hotels/Cancellation]
+      x-hapi-intent: { use-when: [Laura wants to replace a booked hotel.], avoid-when: [No hotel booking exists.] }
+      x-hapi-effects: { mode: delete, side-effecting: true, destructive: true, idempotent: true, requires-confirmation: true }
+      x-hapi-prerequisites: [Verified booked hotel, Explicit cancellation confirmation]
+      x-hapi-planning: { requires: [{ predicate: hotel.booked }], produces: [{ predicate: hotel.cancelled }], removes: [{ predicate: hotel.booked }], cost: 1 }
+      responses: { '200': { description: Cancelled hotel, content: { application/json: { schema: { type: object } } } } }
+components:
+  schemas:
+    Hotels: { type: object, required: [hotels], properties: { hotels: { type: array, items: { type: object, properties: { id: { type: string }, name: { type: string }, status: { type: string } } } } } }
